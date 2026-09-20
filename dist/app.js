@@ -6,7 +6,7 @@ const byId=new Map(all.map(q=>[q.id,q]));
 const QA=new URLSearchParams(location.search).has('qa');
 const KEY='math2-study-v1'+(QA?'-qa':''), day=86400000;
 if(QA){document.querySelector('header .badge').textContent='测试预览 · 独立记录';const english=document.querySelector('[data-subject=english]'),politics=document.querySelector('[data-subject=politics]');if(english)english.href='english.html?qa=1';if(politics)politics.href='politics.html?qa=1';}
-const blank=()=>({version:1,records:{},exams:{},read:[],last:null});
+const blank=()=>({version:1,records:{},exams:{},read:[],customMistakes:[],associationCards:[],last:null});
 let state=blank(), storageWarning='', recoveryRaw=null, timer=null, toastTimer;
 try{recoveryRaw=localStorage.getItem(KEY);if(recoveryRaw)state=validate(JSON.parse(recoveryRaw));recoveryRaw=null;}catch{storageWarning='之前的学习记录未能读取。请先导出原始记录，暂时不要覆盖；本次练习只在当前页面保存。';}
 function validate(s){
@@ -30,7 +30,7 @@ function validate(s){
   }out.exams[id]=n;
  }
  out.read=s.read.filter(id=>D.methods.some(m=>m.id===id)||D.chapters.some(c=>c.id===id));
- out.last=byId.has(s.last)?s.last:null;return out;
+ Object.assign(out,CustomRecords.clean(s));out.last=byId.has(s.last)?s.last:null;return out;
 }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const app=document.getElementById('app');
@@ -124,16 +124,17 @@ function tick(){for(const [id,e] of Object.entries(state.exams))if(!e.submitted&
 function settings(){return heading('数据与来源','学习记录保存在当前浏览器。换设备或清理浏览器前，请导出备份。')+`<div class="grid2"><section class="panel"><h2>学习记录备份</h2><p>包含作答、错因、收藏、掌握程度、已读文章与模拟进度。电脑与平板之间可通过备份文件手动迁移，不会自动同步。</p><div class="actions"><button class="primary" data-action="export">导出学习记录</button><label class="secondary" for="import">导入备份</label><input class="sr-only" id="import" type="file" accept=".json,application/json"></div></section><section class="panel"><h2>个人使用</h2><p>没有注册和付费功能，也没有统计脚本。网站和学习记录不会主动上传。访问来源页及原题附图需要联网。</p><p class="muted">建议每周备份一次。清理网站数据、换浏览器或切换网址后，原记录不会自动出现。</p></section></div><section class="panel" style="margin-top:20px"><h2>内容说明</h2><div class="link-row"><div><b>历年真题 · ${window.PAPERS?.questions.length||0} 题</b><p class="muted">题干、选项与选择题答案整理自公开试卷页面。保留逐题来源。第三方详细解题文章在原站阅读，部分填空答案可直接查看。</p></div>${external('https://www.csgraduates.com/study_methods/math/math2/','计算机考研杂货铺')}</div><div class="link-row"><div><b>原创学习内容</b><p class="muted">12 章复习手册、8 篇学习方法、12 道专项练习与 4 套原创模拟卷。A、B 卷定位基础巩固，C、D 卷定位综合提高；不是张宇、李林等教师试卷，也未做真实难度标定。</p></div></div><div class="link-row"><div><b>参考学习入口</b><p>${external('https://www.csgraduates.com/study_methods/talk/methodology/','杂货铺复习方法论')} · ${external('https://zhentiqiang.com/kaoyan/math','真题墙')} · ${external('https://www.icourse163.org/','中国大学 MOOC')}</p></div></div><p class="muted">题目整理日期：${esc(window.PAPERS?.retrieved||'未加载')}。原题答案可能有勘误，疑问处请对照原卷与可信解析。真题为历史材料，不等同于当年大纲。</p></section>`;}
 function render(keepScroll=false){
  const top=scrollY,{path,params}=route(),[kind,id]=path.split('/');
- const labels={home:'学习概览',methods:'学习方法',knowledge:'知识点手册',practice:'专项练习',papers:'历年真题',mocks:'模拟考场',review:'错题与收藏',settings:'数据与来源',question:'单题练习'};
+ const labels={home:'学习概览',methods:'学习方法',knowledge:'知识点手册',practice:'专项练习',papers:'历年真题',mocks:'模拟考场',review:'错题与收藏',custom:'自定义记录',settings:'数据与来源',question:'单题练习'};
  document.getElementById('crumb').textContent=labels[kind]||'学习空间';document.title=(labels[kind]||'学习空间')+' · 数学二 · 考研研习室';
  document.querySelectorAll('#nav a').forEach(a=>{a.classList.toggle('active',a.hash==='#'+kind);if(a.hash==='#'+kind)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
  let html='';
- if(kind==='home')html=home();else if(kind==='methods'||kind==='knowledge')html=library(kind,id);else if(kind==='practice'||kind==='review')html=practice(params,kind==='review');else if(kind==='papers')html=papers(id);else if(kind==='mocks')html=mocks(id,params);else if(kind==='settings')html=settings();else if(kind==='question'&&byId.has(id)){const q=byId.get(id);html=q.mock&&!state.exams[q.mock]?.submitted?mocks():heading('单题练习',cname(q.chapter))+question(q);}else html=empty('这个页面不存在');
+ if(kind==='home')html=home();else if(kind==='methods'||kind==='knowledge')html=library(kind,id);else if(kind==='practice'||kind==='review')html=practice(params,kind==='review');else if(kind==='papers')html=papers(id);else if(kind==='mocks')html=mocks(id,params);else if(kind==='custom')html=CustomRecords.render(state,heading,'数学');else if(kind==='settings')html=settings();else if(kind==='question'&&byId.has(id)){const q=byId.get(id);html=q.mock&&!state.exams[q.mock]?.submitted?mocks():heading('单题练习',cname(q.chapter))+question(q);}else html=empty('这个页面不存在');
  app.innerHTML=(storageWarning?`<div class="notice">${esc(storageWarning)}</div>`:'')+html;math();if(keepScroll)scrollTo(0,top);else scrollTo(0,0);tick();
 }
-app.addEventListener('submit',ev=>{if(ev.target.id!=='filters')return;ev.preventDefault();go(ev.target.dataset.view,Object.fromEntries(new FormData(ev.target)));});
+app.addEventListener('submit',ev=>{const form=ev.target;if(form.dataset.customForm){ev.preventDefault();const msg=CustomRecords.submit(form,state);if(msg){save();render();toast(msg);}return;}if(form.id!=='filters')return;ev.preventDefault();go(form.dataset.view,Object.fromEntries(new FormData(form)));});
 app.addEventListener('click',ev=>{
  const b=ev.target.closest('button,a[data-jump]');if(!b)return;
+ if(b.dataset.customDelete){if(CustomRecords.remove(b,state)){save();render(true);toast('已删除自定义记录');}return;}
  if(b.dataset.jump){ev.preventDefault();document.getElementById(b.dataset.jump)?.scrollIntoView({behavior:'smooth'});return;}
  if(b.dataset.start){const id=b.dataset.start;if(!startExam(id))return;go('mocks/'+id,{section:0});return;}
  if(b.dataset.exitExam){const e=state.exams[b.dataset.exitExam];if(e&&!e.submitted&&!e.pausedAt)e.pausedAt=Date.now();save();go('mocks');toast('已暂停并保存，可稍后继续');return;}
