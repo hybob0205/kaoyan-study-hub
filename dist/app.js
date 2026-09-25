@@ -98,7 +98,7 @@ function practice(params,review=false){
 }
 function papers(year){
  const qs=all.filter(q=>q.year===Number(year)).sort((a,b)=>a.number-b.number);
- if(year)return heading(`${esc(year)} 年数学二真题`,`${qs.length} 题 · 题目和选项可在本站练习；详细解析保留在原来源页。`)+`<a href="#papers">← 全部年份</a><div class="exam-grid">${qs.map(q=>`<a href="#q-${q.id}" data-jump="q-${q.id}">${q.number}</a>`).join('')}</div>${qs.map(q=>question(q)).join('')}`;
+ if(year)return heading(`${esc(year)} 年数学二真题`,`${qs.length} 题 · 题目和选项可在本站练习；详细解析保留在原来源页。`)+`<a href="#papers">← 全部年份</a><div class="question-picker"><div class="picker-label">本卷题目导航 · 点击跳转</div><div class="exam-grid">${qs.map(q=>`<a href="#q-${q.id}" data-jump="q-${q.id}">${q.number}</a>`).join('')}</div></div>${qs.map(q=>question(q)).join('')}`;
  const years=[...new Set(all.filter(q=>q.year).map(q=>q.year))].sort((a,b)=>b-a);
  return heading('历年真题','整卷练习保留原始题号；按考点训练请进入专项练习。')+`<div class="notice">准备模考时，可先保留最近 2—3 年未做过的试卷。往年题型与分值结构可能不同。</div><div class="cards">${years.map(y=>{const ids=all.filter(q=>q.year===y).map(q=>q.id),done=count(ids,r=>r.checked||r.status);return `<a class="card" href="#papers/${y}"><span class="eyebrow">MATH II · ${y}</span><h2>${y} 年数学二</h2><p>${ids.length} 题 · 在线作答 · 原站解析</p><div class="progress"><span style="width:${100*done/ids.length}%"></span></div><small class="muted">已练 ${done} / ${ids.length}</small></a>`;}).join('')}</div>${window.PAPERS?.failures.length?`<div class="notice">${window.PAPERS.failures.map(x=>x.year).join('、')} 年尚未完整导入，可在 ${external('https://www.csgraduates.com/study_methods/math/math2/','来源网站')} 阅读。</div>`:''}`;
 }
